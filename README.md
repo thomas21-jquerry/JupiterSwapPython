@@ -1,7 +1,8 @@
 # JupiterSwapPython
 ## To Run On Google Colab
 1. Run
-   ``` !pip install solana
+   ```
+       !pip install solana
        !pip install solders
        !pip install requests
     ```
