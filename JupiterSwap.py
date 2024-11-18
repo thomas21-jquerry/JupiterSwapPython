@@ -1,3 +1,4 @@
+
 import requests
 import base64
 import solders
@@ -13,7 +14,9 @@ from spl.token.instructions import create_associated_token_account
 from solana.rpc.types import TxOpts
 from spl.token.constants import ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID
 from solana.rpc.commitment import Confirmed
+from solana.rpc.commitment import Processed
 from solders.message import MessageV0
+import time
 
 
 # Inputs
@@ -24,7 +27,7 @@ private_key_string = ""  # Replace with your private key
 user_public_key = "" # replace with your public key
 
 # Initialize the Solana Client (mainnet)
-client = Client("https://api.mainnet-beta.solana.com")
+client = Client("https://go.getblock.io/6f86d5a2341e46a3a994d049101ce34a")
 
 # Create the sender Keypair from the private key string
 sender = Keypair.from_base58_string(private_key_string)
@@ -32,7 +35,7 @@ sender_pubkey = sender.pubkey()
 print(f"Sender public key: {sender_pubkey}")
 
 quote_url = f"https://quote-api.jup.ag/v6/quote?inputMint={input_token_address}" \
-            f"&outputMint={output_token_address}&amount={int(amount * 10**9)}&slippageBps=1"
+            f"&outputMint={output_token_address}&amount={int(amount * 10**9)}&slippageBps=10"
 response = requests.get(quote_url)
 quote_data = response.json()
 
@@ -41,7 +44,7 @@ print("Quote Response:", quote_data)
 
 
 
-# Construct the body of the POST request
+# Construct the body of the POST request for swap response
 swap_data = {
     "quoteResponse": quote_data,  # the entire quote response
     "userPublicKey": user_public_key,  # user's public key
@@ -75,10 +78,18 @@ print(f"Recent blockhash: {recent_blockhash}")
 signature = sender.sign_message(solders.message.to_bytes_versioned(swap_transaction.message))
 signed_tx = solders.transaction.VersionedTransaction.populate(swap_transaction.message, [signature])
 encoded_tx = base64.b64encode(bytes(signed_tx)).decode('utf-8')
-txid = client.send_transaction(
-        signed_tx,opts=TxOpts(skip_confirmation=False, preflight_commitment=Confirmed)
-    ).value
+# txid = client.send_transaction(
+#         signed_tx,opts=TxOpts(skip_confirmation=False, preflight_commitment=Confirmed)
+#     ).value
+# print("Your transaction Id is: ",txid)
 
-print(txid)
+for attempts in range(5):
+    try:
+        txid = client.send_transaction(signed_tx,opts=TxOpts(skip_confirmation=False, preflight_commitment=Processed)).value
+        print("Your transaction Id is: ",txid)
+        break
+    except Exception as e:
+        print(f"Attempt {attempts + 1} failed due to timeout. Retrying in {5} seconds... [ reason: ", e, "]")
+        time.sleep(5)
 
-# Print the deserialized transaction (for debugging)
+# raise Exception("Transaction failed after multiple attempts due to timeouts.")
